@@ -11,24 +11,27 @@ import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.RecyclerView;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.arpaul.ids.Common.AppPreference;
+import com.example.arpaul.ids.Utilities.ITelephony;
 import com.example.arpaul.ids.Utilities.UnCaughtException;
+
+import java.lang.reflect.Method;
 
 public class PhoneRecordActivity extends AppCompatActivity {
 
     private EditText edtNumber;
     private Button btnSave;
+    private AppPreference preference;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +43,8 @@ public class PhoneRecordActivity extends AppCompatActivity {
         /*************Activity controls fetched*******************/
         initializeControls();
 
-        String oldNumber = new AppPreference(PhoneRecordActivity.this).getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
+        preference = new AppPreference(PhoneRecordActivity.this);
+        String oldNumber = preference.getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
         if(!TextUtils.isEmpty(oldNumber))
             edtNumber.setText(oldNumber);
 
@@ -49,16 +53,21 @@ public class PhoneRecordActivity extends AppCompatActivity {
             public void onClick(View v) {
                 String number = edtNumber.getText().toString();
                 if(!TextUtils.isEmpty(number) && number.length() > 9 && number.length() < 11){
-                    new AppPreference(PhoneRecordActivity.this).saveStringInPreference(AppPreference.FORWARDING_NUMBER,number);
+                    preference.saveStringInPreference(AppPreference.FORWARDING_NUMBER,number);
 
                     Toast.makeText(PhoneRecordActivity.this, number, Toast.LENGTH_SHORT).show();
+
+                    Toast.makeText(PhoneRecordActivity.this, "Test: "+preference.getStringFromPreference(AppPreference.FORWARDING_NUMBER,""), Toast.LENGTH_SHORT).show();
                 }
             }
         });
 
         checkPermission();
 
-        callforward();
+        PhoneCallListener phoneListener = new PhoneCallListener();
+        TelephonyManager telephonyManager = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
+        telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE);
+        //callforward();
     }
 
     Intent intentCallForward;
@@ -73,30 +82,53 @@ public class PhoneRecordActivity extends AppCompatActivity {
             if( hasLocationPermission != PackageManager.PERMISSION_GRANTED ) {
                 ActivityCompat.requestPermissions((Activity) PhoneRecordActivity.this,new String[]{Manifest.permission.READ_CONTACTS,Manifest.permission.ACCESS_COARSE_LOCATION},11);
             } else {
-                String forwardNumber = new AppPreference(PhoneRecordActivity.this).getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
+                String forwardNumber = preference.getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
 
                 Toast.makeText(PhoneRecordActivity.this," Forwarding to: "+forwardNumber,Toast.LENGTH_SHORT).show();
 
-                PhoneCallListener phoneListener = new PhoneCallListener();
-                TelephonyManager telephonyManager = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
-                telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE);
-
-                Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber+"#", "#");
+                Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber/*+"#"*/, "#");
                 intentCallForward.setData(mmiCode);
                 startActivity(intentCallForward);
+
+
+                /*try {
+                    TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+                    Toast.makeText(PhoneRecordActivity.this,"Get getTeleService...",Toast.LENGTH_SHORT).show();
+                    Class c = Class.forName(tm.getClass().getName());
+                    Method m = c.getDeclaredMethod("getITelephony");
+                    m.setAccessible(true);
+                    ITelephony telephonyService = (ITelephony) m.invoke(tm);
+                    Bundle b = intent.getExtras();
+                    incommingNumber = b.getString(TelephonyManager.EXTRA_INCOMING_NUMBER);
+                    if ( incommingNumber.equals(incno1) )
+                    {
+                        telephonyService = (ITelephony) m.invoke(tm);
+                        telephonyService.silenceRinger();
+                        telephonyService.endCall();
+                        Toast.makeText(PhoneRecordActivity.this,"BYE BYE BYE",Toast.LENGTH_SHORT).show();
+                    }
+                    else{
+
+                        telephonyService.answerRingingCall();
+                        Toast.makeText(PhoneRecordActivity.this,"HELLO HELLO HELLO",Toast.LENGTH_SHORT).show();
+                    }
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(PhoneRecordActivity.this,"FATAL ERROR: could not connect to telephony subsystem",Toast.LENGTH_SHORT).show();
+                    Toast.makeText(PhoneRecordActivity.this,"Exception object: " + e,Toast.LENGTH_SHORT).show();
+                }*/
             }
         } else {
             Toast.makeText(PhoneRecordActivity.this,"Less than Build.VERSION_CODES.M ",Toast.LENGTH_SHORT).show();
 
-            String forwardNumber = new AppPreference(PhoneRecordActivity.this).getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
+            String forwardNumber = preference.getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
 
             Toast.makeText(PhoneRecordActivity.this," Forwarding to: "+forwardNumber,Toast.LENGTH_SHORT).show();
 
-            PhoneCallListener phoneListener = new PhoneCallListener();
-            TelephonyManager telephonyManager = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
-            telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE);
 
-            Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber+"#", "#");
+            Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber/*+"#"*/, "#");
             intentCallForward.setData(mmiCode);
             startActivity(intentCallForward);
         }
@@ -106,8 +138,8 @@ public class PhoneRecordActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == 1) {
-            String forwardNumber = new AppPreference(PhoneRecordActivity.this).getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
+        /*if (requestCode == 1) {
+            String forwardNumber = preference.getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
 
             Toast.makeText(PhoneRecordActivity.this," Forwarding to: "+forwardNumber,Toast.LENGTH_SHORT).show();
 
@@ -115,10 +147,10 @@ public class PhoneRecordActivity extends AppCompatActivity {
             TelephonyManager telephonyManager = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
             telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE);
 
-            Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber+"#", "#");
+            Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber*//*+"#"*//*, "#");
             intentCallForward.setData(mmiCode);
             startActivity(intentCallForward);
-        }
+        }*/
     }
 
     private class PhoneCallListener extends PhoneStateListener
@@ -132,6 +164,8 @@ public class PhoneRecordActivity extends AppCompatActivity {
             {
                 // phone ringing
                 Toast.makeText(PhoneRecordActivity.this," Ringing ",Toast.LENGTH_SHORT).show();
+                callforward();
+
             }
 
             if (TelephonyManager.CALL_STATE_OFFHOOK == state)
@@ -147,10 +181,10 @@ public class PhoneRecordActivity extends AppCompatActivity {
                 if (isPhoneCalling)
                 {
                     // restart app
-                    Intent i = getBaseContext().getPackageManager().getLaunchIntentForPackage(getBaseContext().getPackageName());
+                    /*Intent i = getBaseContext().getPackageManager().getLaunchIntentForPackage(getBaseContext().getPackageName());
                     i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     startActivity(i);
-                    isPhoneCalling = false;
+                    isPhoneCalling = false;*/
                 }
             }
         }
@@ -164,13 +198,13 @@ public class PhoneRecordActivity extends AppCompatActivity {
             hasREAD_PHONE_STATEPermission = checkSelfPermission(Manifest.permission.READ_PHONE_STATE );
             if( hasCALL_PHONEPermission != PackageManager.PERMISSION_GRANTED ||
                     hasREAD_PHONE_STATEPermission != PackageManager.PERMISSION_GRANTED) {
-                verifyLocation();
+                verifyPhoneCall();
             }
         }
         return hasCALL_PHONEPermission;
     }
 
-    private void verifyLocation(){
+    private void verifyPhoneCall(){
         ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.CALL_PHONE,Manifest.permission.READ_PHONE_STATE},1);
     }
 

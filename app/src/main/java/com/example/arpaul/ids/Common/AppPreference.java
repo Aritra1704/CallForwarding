@@ -24,6 +24,7 @@ public class AppPreference {
     public void saveStringInPreference(String strKey,String strValue)
     {
         edit.putString(strKey, strValue);
+        edit.commit();
     }
 
     public void removeFromPreference(String strKey)
