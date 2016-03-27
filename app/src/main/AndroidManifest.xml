@@ -19,7 +19,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
+        <provider
+            android:name=".DataAccess.ContentProviderHelper"
+            android:authorities="com.example.arpaul.ids.DataAccess.ContentProviderHelper"
+            android:exported="false"
+            android:syncable="true" >
+        </provider>
     </application>
 
 </manifest>

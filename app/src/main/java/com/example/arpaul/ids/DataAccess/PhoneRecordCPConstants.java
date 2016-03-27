@@ -8,7 +8,7 @@ import android.net.Uri;
  * Created by ARPaul on 07-01-2016.
  */
 public class PhoneRecordCPConstants {
-    public static final String CONTENT_AUTHORITY = "com.example.arpaul.phonerecord.DataAccess.ContentProviderHelper";
+    public static final String CONTENT_AUTHORITY = "com.example.arpaul.ids.DataAccess.ContentProviderHelper";
 
     static final String DATABASE_NAME = "PhoneRecord.db";
     public static final String CALL_RECEIVE_TABLE_NAME = "Call";

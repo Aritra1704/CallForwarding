@@ -2,9 +2,16 @@ package com.example.arpaul.ids;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -22,6 +29,8 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.example.arpaul.ids.Common.AppPreference;
+import com.example.arpaul.ids.DataAccess.PhoneRecordCPConstants;
+import com.example.arpaul.ids.Utilities.CalendarUtils;
 import com.example.arpaul.ids.Utilities.ITelephony;
 import com.example.arpaul.ids.Utilities.UnCaughtException;
 
@@ -68,7 +77,6 @@ public class PhoneRecordActivity extends AppCompatActivity {
         PhoneCallListener phoneListener = new PhoneCallListener();
         TelephonyManager telephonyManager = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
         telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE);
-        //callforward();
     }
 
     Intent intentCallForward;
@@ -90,7 +98,6 @@ public class PhoneRecordActivity extends AppCompatActivity {
                 try {
 
                     Uri mmiCode = Uri.fromParts("tel", "**21*"+forwardNumber+"#", "#");
-                    /*Uri mmiCode = Uri.fromParts("tel", "**21*7382989305#", "#");*/
                     Toast.makeText(PhoneRecordActivity.this,"No: "+mmiCode.toString(),Toast.LENGTH_LONG).show();
                     intentCallForward.setData(mmiCode);
                     intentCallForward.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -98,36 +105,6 @@ public class PhoneRecordActivity extends AppCompatActivity {
                 } catch (Exception ex) {
                     Toast.makeText(PhoneRecordActivity.this,"Exception: "+ex.toString(),Toast.LENGTH_SHORT).show();
                 }
-
-
-                /*try {
-                    TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-                    Toast.makeText(PhoneRecordActivity.this,"Get getTeleService...",Toast.LENGTH_SHORT).show();
-                    Class c = Class.forName(tm.getClass().getName());
-                    Method m = c.getDeclaredMethod("getITelephony");
-                    m.setAccessible(true);
-                    ITelephony telephonyService = (ITelephony) m.invoke(tm);
-                    Bundle b = intent.getExtras();
-                    incommingNumber = b.getString(TelephonyManager.EXTRA_INCOMING_NUMBER);
-                    if ( incommingNumber.equals(incno1) )
-                    {
-                        telephonyService = (ITelephony) m.invoke(tm);
-                        telephonyService.silenceRinger();
-                        telephonyService.endCall();
-                        Toast.makeText(PhoneRecordActivity.this,"BYE BYE BYE",Toast.LENGTH_SHORT).show();
-                    }
-                    else{
-
-                        telephonyService.answerRingingCall();
-                        Toast.makeText(PhoneRecordActivity.this,"HELLO HELLO HELLO",Toast.LENGTH_SHORT).show();
-                    }
-
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(PhoneRecordActivity.this,"FATAL ERROR: could not connect to telephony subsystem",Toast.LENGTH_SHORT).show();
-                    Toast.makeText(PhoneRecordActivity.this,"Exception object: " + e,Toast.LENGTH_SHORT).show();
-                }*/
             }
         } else {
             Toast.makeText(PhoneRecordActivity.this,"Less than Build.VERSION_CODES.M ",Toast.LENGTH_SHORT).show();
@@ -136,9 +113,7 @@ public class PhoneRecordActivity extends AppCompatActivity {
 
             Toast.makeText(PhoneRecordActivity.this," Forwarding to: "+forwardNumber,Toast.LENGTH_SHORT).show();
 
-
             Uri mmiCode = Uri.fromParts("tel", "**21*"+forwardNumber+"#", "#");
-            /*Uri mmiCode = Uri.fromParts("tel", "**21*7382989305#", "#");*/
             Toast.makeText(PhoneRecordActivity.this,"No: "+mmiCode.toString(),Toast.LENGTH_LONG).show();
             intentCallForward.setData(mmiCode);
             intentCallForward.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -154,7 +129,7 @@ public class PhoneRecordActivity extends AppCompatActivity {
 
     private class PhoneCallListener extends PhoneStateListener
     {
-        private boolean isPhoneCalling = false;
+        private boolean firstConnect = false;
 
         @Override
         public void onCallStateChanged(int state, String incomingNumber)
@@ -165,28 +140,87 @@ public class PhoneRecordActivity extends AppCompatActivity {
                 Toast.makeText(PhoneRecordActivity.this," Ringing ",Toast.LENGTH_SHORT).show();
                 callforward();
 
+                if(!firstConnect){
+                    saveCallList(incomingNumber);
+                    firstConnect = true;
+                }
             }
 
             if (TelephonyManager.CALL_STATE_OFFHOOK == state)
             {
                 // active
-                isPhoneCalling = true;
+                firstConnect = false;
             }
 
             if (TelephonyManager.CALL_STATE_IDLE == state)
             {
                 // run when class initial and phone call ended, need detect flag
                 // from CALL_STATE_OFFHOOK
-                if (isPhoneCalling)
-                {
-                    // restart app
-                    /*Intent i = getBaseContext().getPackageManager().getLaunchIntentForPackage(getBaseContext().getPackageName());
-                    i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    startActivity(i);
-                    isPhoneCalling = false;*/
-                }
+                firstConnect = false;
             }
         }
+    }
+
+    private void saveCallList(String incomingNumber){
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(PhoneRecordCPConstants.CONTENT_URI,new String[]{PhoneRecordCPConstants.COLUMN_CALL_DATETIME},
+                    PhoneRecordCPConstants.COLUMN_CONTACT_NO + "= ?",
+                    new String[]{incomingNumber},
+                    "ORDER BY "+PhoneRecordCPConstants.COLUMN_CALL_DATETIME+" DESC LIMIT 1");
+
+            int diffBetweenTime = 0;
+            String currentTime = CalendarUtils.getCurrentDateTime();
+            if (cursor != null && cursor.moveToFirst() && cursor.getCount() > 0) {
+                String lastTime = cursor.getString(cursor.getColumnIndex(PhoneRecordCPConstants.COLUMN_CALL_DATETIME));
+                diffBetweenTime = CalendarUtils.getDiffBtwDatesInMinutes(lastTime,currentTime);
+            }
+
+            if(diffBetweenTime < 5) {
+                callforward();
+            }
+
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(PhoneRecordCPConstants.COLUMN_CONTACT_NO, incomingNumber);
+            contentValues.put(PhoneRecordCPConstants.COLUMN_CONTACT_TYPE, PhoneRecordCPConstants.get_Contact_Type_Call());
+            contentValues.put(PhoneRecordCPConstants.COLUMN_CALL_DATETIME, currentTime);
+            //Keeping ischecked 0 since its not checked yet.
+            contentValues.put(PhoneRecordCPConstants.COLUMN_CHECHED, PhoneRecordCPConstants.get_Not_Checked());
+
+            getContentResolver().insert(PhoneRecordCPConstants.CONTENT_URI, contentValues);
+
+            notifyUser();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public void notifyUser(){
+
+        NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+
+        Intent intent = new Intent(PhoneRecordActivity.this, PhoneRecordActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        //use the flag FLAG_UPDATE_CURRENT to override any notification already there
+        PendingIntent contentIntent = PendingIntent.getActivity(PhoneRecordActivity.this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Notification.Builder builder = new Notification.Builder(PhoneRecordActivity.this);
+        builder.setAutoCancel(false);
+        builder.setTicker("New call received.");
+        builder.setContentTitle("New call received.");
+        builder.setContentText("You have a received a new call.");
+        builder.setSmallIcon(R.drawable.call);
+        Bitmap icon = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
+        builder.setLargeIcon(icon);
+        builder.setContentIntent(contentIntent);
+        builder.setOngoing(true);
+        //builder.setNumber(100);
+        builder.build();
+
+        Notification notification = builder.getNotification();
+        notification.flags = Notification.FLAG_AUTO_CANCEL | Notification.DEFAULT_LIGHTS | Notification.DEFAULT_SOUND;
+        notificationManager.notify(11, notification);
+
     }
 
     private int checkPermission(){
