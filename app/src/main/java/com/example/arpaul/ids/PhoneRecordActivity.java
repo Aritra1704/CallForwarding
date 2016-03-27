@@ -86,9 +86,17 @@ public class PhoneRecordActivity extends AppCompatActivity {
 
                 Toast.makeText(PhoneRecordActivity.this," Forwarding to: "+forwardNumber,Toast.LENGTH_SHORT).show();
 
-                Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber/*+"#"*/, "#");
-                intentCallForward.setData(mmiCode);
-                startActivity(intentCallForward);
+                try {
+
+                    Uri mmiCode = Uri.fromParts("tel", "**21*"+forwardNumber+"#", "#");
+                    /*Uri mmiCode = Uri.fromParts("tel", "**21*7382989305#", "#");*/
+                    Toast.makeText(PhoneRecordActivity.this,"No: "+mmiCode.toString(),Toast.LENGTH_LONG).show();
+                    intentCallForward.setData(mmiCode);
+                    intentCallForward.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intentCallForward);
+                } catch (Exception ex) {
+                    Toast.makeText(PhoneRecordActivity.this,"Exception: "+ex.toString(),Toast.LENGTH_SHORT).show();
+                }
 
 
                 /*try {
@@ -128,8 +136,11 @@ public class PhoneRecordActivity extends AppCompatActivity {
             Toast.makeText(PhoneRecordActivity.this," Forwarding to: "+forwardNumber,Toast.LENGTH_SHORT).show();
 
 
-            Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber/*+"#"*/, "#");
+            Uri mmiCode = Uri.fromParts("tel", "**21*"+forwardNumber+"#", "#");
+            /*Uri mmiCode = Uri.fromParts("tel", "**21*7382989305#", "#");*/
+            Toast.makeText(PhoneRecordActivity.this,"No: "+mmiCode.toString(),Toast.LENGTH_LONG).show();
             intentCallForward.setData(mmiCode);
+            intentCallForward.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intentCallForward);
         }
     }
@@ -138,19 +149,6 @@ public class PhoneRecordActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        /*if (requestCode == 1) {
-            String forwardNumber = preference.getStringFromPreference(AppPreference.FORWARDING_NUMBER,"");
-
-            Toast.makeText(PhoneRecordActivity.this," Forwarding to: "+forwardNumber,Toast.LENGTH_SHORT).show();
-
-            PhoneCallListener phoneListener = new PhoneCallListener();
-            TelephonyManager telephonyManager = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
-            telephonyManager.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE);
-
-            Uri mmiCode = Uri.fromParts("tel", "*21*"+forwardNumber*//*+"#"*//*, "#");
-            intentCallForward.setData(mmiCode);
-            startActivity(intentCallForward);
-        }*/
     }
 
     private class PhoneCallListener extends PhoneStateListener
