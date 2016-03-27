@@ -48,6 +48,7 @@ public class PhoneRecordActivity extends AppCompatActivity {
         if(!TextUtils.isEmpty(oldNumber))
             edtNumber.setText(oldNumber);
 
+
         btnSave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
